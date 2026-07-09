@@ -1,0 +1,40 @@
+#!/bin/bash
+QUERY="$*"
+if [ -z "$QUERY" ]; then
+  echo "Usage: ai.ask <your question>"
+  echo "No query provided"
+else
+  # Use the token from the environment variable if available, else literal "GROK"
+  AUTH_TOKEN="${GROK:-GROK}"
+
+  # Escape the query properly for JSON
+  JSON_QUERY=$(echo "$QUERY" | jq -R .)
+
+  RESPONSE=$(curl -s https://ai.hackclub.com/proxy/v1/chat/completions \
+    -H "Authorization: Bearer $AUTH_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"model\": \"tencent/hy3:free\",
+      \"messages\": [
+        {\"role\": \"user\", \"content\": $JSON_QUERY}
+      ]
+    }")
+
+  if ! echo "$RESPONSE" | jq empty > /dev/null 2>&1; then
+      echo "Error: AI Proxy returned invalid response"
+      echo "$RESPONSE"
+  else
+      ERROR=$(echo "$RESPONSE" | jq -r '.error.message // empty')
+      if [ ! -z "$ERROR" ]; then
+          echo "Error from AI Proxy: $ERROR"
+      else
+          CONTENT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // empty')
+          if [ -z "$CONTENT" ]; then
+              echo "Error: No content in response"
+              echo "$RESPONSE" | jq .
+          else
+              echo "$CONTENT"
+          fi
+      fi
+  fi
+fi
