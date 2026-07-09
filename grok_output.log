@@ -1,0 +1,20 @@
+
+To sign in, open this URL in your browser:
+
+  https://accounts.x.ai/oauth2/device?user_code=A98J-4ZQ6
+
+Confirm this code in your browser:
+
+  A98J-4ZQ6
+
+[90mOnly continue with a code you requested. Don't share it with anyone.[0m
+
+Waiting for authorization...
+Internal error: {
+  "message": "API error (status 403 Forbidden): permission-denied: Access to the chat endpoint is denied. Please ensure you're using the correct credentials. If you believe this is a mistake, please log into console.x.ai and update the permissions, or contact support.\n\nRequest URL: https://cli-chat-proxy.grok.com/v1/responses",
+  "http_status": 403
+}
+Error: Internal error: {
+  "message": "API error (status 403 Forbidden): permission-denied: Access to the chat endpoint is denied. Please ensure you're using the correct credentials. If you believe this is a mistake, please log into console.x.ai and update the permissions, or contact support.\n\nRequest URL: https://cli-chat-proxy.grok.com/v1/responses",
+  "http_status": 403
+}
