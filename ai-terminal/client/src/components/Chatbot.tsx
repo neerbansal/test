@@ -11,6 +11,10 @@ export const Chatbot: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [expandedReasoning, setExpandedReasoning] = useState<Record<number, boolean>>({});
+  const [apiKey, setApiKey] = useState<string>(() => {
+    return localStorage.getItem('openrouter_api_key') || '';
+  });
+  const [showKeyInput, setShowKeyInput] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -20,6 +24,15 @@ export const Chatbot: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  const handleApiKeyChange = (key: string) => {
+    setApiKey(key);
+    if (key.trim()) {
+      localStorage.setItem('openrouter_api_key', key.trim());
+    } else {
+      localStorage.removeItem('openrouter_api_key');
+    }
+  };
 
   const toggleReasoning = (index: number) => {
     setExpandedReasoning((prev) => ({ ...prev, [index]: !prev[index] }));
@@ -43,13 +56,19 @@ export const Chatbot: React.FC = () => {
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
 
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (apiKey.trim()) {
+        headers['x-api-key'] = apiKey.trim();
+      }
+
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           model: 'stealth/ox-alpha',
           messages: updatedMessages,
-          reasoning: { enabled: true }
+          reasoning: { enabled: true },
+          apiKey: apiKey.trim() || undefined
         }),
       });
 
@@ -112,7 +131,7 @@ export const Chatbot: React.FC = () => {
                 return next;
               });
             } catch {
-              // Ignore parse error for incomplete JSON SSE chunks
+              // Ignore parse error for incomplete SSE JSON
             }
           }
         }
@@ -141,23 +160,46 @@ export const Chatbot: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-[#0a0a0a] text-[#f4f4f5] font-sans rounded-xl border border-[#27272a] shadow-2xl overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#27272a] bg-[#121212]/80 backdrop-blur-md">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-full bg-[#27272a] flex items-center justify-center font-bold text-white text-sm">
-            G
+      <div className="flex flex-col border-b border-[#27272a] bg-[#121212]/80 backdrop-blur-md">
+        <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-full bg-[#27272a] flex items-center justify-center font-bold text-white text-sm">
+              G
+            </div>
+            <div>
+              <h2 className="font-semibold text-base text-zinc-100 tracking-tight">Grok Assistant</h2>
+              <p className="text-xs text-zinc-400 font-mono">stealth/ox-alpha • reasoning mode enabled</p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-semibold text-base text-zinc-100 tracking-tight">Grok Assistant</h2>
-            <p className="text-xs text-zinc-400 font-mono">stealth/ox-alpha • reasoning mode enabled</p>
+
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowKeyInput(!showKeyInput)}
+              className="px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-[#1c1c1f] hover:bg-[#27272a] rounded-lg border border-[#27272a] transition-all"
+            >
+              {apiKey ? '🔑 Key Set' : '⚙️ API Key'}
+            </button>
+            <button
+              onClick={handleClear}
+              className="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-white bg-[#1c1c1f] hover:bg-[#27272a] rounded-lg border border-[#27272a] transition-all"
+            >
+              Clear Chat
+            </button>
           </div>
         </div>
 
-        <button
-          onClick={handleClear}
-          className="px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-white bg-[#1c1c1f] hover:bg-[#27272a] rounded-lg border border-[#27272a] transition-all"
-        >
-          Clear Chat
-        </button>
+        {showKeyInput && (
+          <div className="px-6 pb-4 pt-1 bg-[#171717] border-t border-[#27272a] flex items-center space-x-3">
+            <span className="text-xs text-zinc-400 font-mono shrink-0">OpenRouter API Key:</span>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => handleApiKeyChange(e.target.value)}
+              placeholder="Paste your key here..."
+              className="flex-1 bg-[#0a0a0a] border border-[#27272a] text-xs text-zinc-100 px-3 py-1.5 rounded-md outline-none focus:border-zinc-500 font-mono"
+            />
+          </div>
+        )}
       </div>
 
       {/* Messages */}

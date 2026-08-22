@@ -1,25 +1,29 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { TerminalLine } from '../types/terminal';
 
 interface Props {
   items: TerminalLine[];
-  rowHeight: number;
+  rowHeight?: number;
 }
 
-export const VirtualList: React.FC<Props> = ({ items, rowHeight }) => {
+export const VirtualList: React.FC<Props> = ({ items }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [containerHeight, setContainerHeight] = useState(0);
+  const [_scrollTop, setScrollTop] = useState(0);
+  const [_containerHeight, setContainerHeight] = useState(0);
 
   useEffect(() => {
-    const updateHeight = () => {
+    const handleScroll = () => {
       if (containerRef.current) {
-        setContainerHeight(containerRef.current.clientHeight);
+        setScrollTop(containerRef.current.scrollTop);
       }
     };
-    updateHeight();
-    window.addEventListener('resize', updateHeight);
-    return () => window.removeEventListener('resize', updateHeight);
+
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      setContainerHeight(container.clientHeight);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
   }, []);
 
   useEffect(() => {
@@ -28,35 +32,26 @@ export const VirtualList: React.FC<Props> = ({ items, rowHeight }) => {
     }
   }, [items]);
 
-  const onScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
-  };
-
-  // Since lines can have newlines, rowHeight is just a baseline.
-  // In a real terminal, we'd calculate each row's height.
-  // For this demo, we'll keep it simple but ensure whitespace is preserved.
-
   return (
     <div
       ref={containerRef}
-      className="flex-1 overflow-y-auto overflow-x-hidden p-4 font-mono text-sm leading-relaxed"
-      onScroll={onScroll}
+      className="flex-1 overflow-y-auto p-4 font-mono text-sm space-y-1"
     >
-      <div className="flex flex-col space-y-1">
-        {items.map((line) => (
-          <div
-            key={line.id}
-            className={`whitespace-pre-wrap break-all ${
-              line.type === 'error' ? 'text-red-500' :
-              line.type === 'input' ? 'text-blue-400 font-bold' :
-              line.type === 'system' ? 'text-yellow-500 italic' :
-              'text-[var(--term)]'
-            }`}
-          >
-            {line.type === 'input' ? `> ${line.content}` : line.content}
-          </div>
-        ))}
-      </div>
+      {items.map((line) => (
+        <div
+          key={line.id}
+          className={`whitespace-pre-wrap leading-relaxed ${
+            line.type === 'input'
+              ? 'text-blue-400 font-bold'
+              : line.type === 'error'
+              ? 'text-red-400'
+              : 'text-term'
+          }`}
+        >
+          {line.type === 'input' && <span className="mr-2 select-none">$</span>}
+          {line.content}
+        </div>
+      ))}
     </div>
   );
 };

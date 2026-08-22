@@ -9,14 +9,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const getApiKey = () => {
+const getApiKey = (req) => {
+  const reqKey = req.headers['x-api-key'] || req.body?.apiKey;
+  if (reqKey && typeof reqKey === 'string' && reqKey.trim().length > 0) {
+    return reqKey.trim();
+  }
   return process.env.OPENROUTER_API_KEY || process.env.VINTER || "yoyo";
 };
 
 app.post('/api/ai/chat', async (req, res) => {
   const { prompt, messages, model, reasoning } = req.body;
 
-  const apiKey = getApiKey();
+  const apiKey = getApiKey(req);
   const selectedModel = model || "stealth/ox-alpha";
 
   let requestMessages = [];
@@ -48,7 +52,12 @@ app.post('/api/ai/chat', async (req, res) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("OpenRouter API error:", response.status, errorText);
-      return res.status(response.status).send(`AI Error: ${errorText}`);
+
+      if (response.status === 401 || response.status === 403) {
+        return res.status(401).send(`Authentication failed (401/403). Please enter a valid OpenRouter API key in the Chatbot settings input bar at the top.`);
+      }
+
+      return res.status(response.status).send(`AI Error (${response.status}): ${errorText}`);
     }
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -70,7 +79,7 @@ app.post('/api/ai/chat', async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).send('AI Error');
+    res.status(500).send('AI Server Error');
   }
 });
 
