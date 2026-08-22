@@ -9,48 +9,65 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const OPENROUTER_API_KEY = process.env.VINTER || process.env.OPENROUTER_API_KEY;
+const getApiKey = () => {
+  return process.env.OPENROUTER_API_KEY || process.env.VINTER || "yoyo";
+};
 
 app.post('/api/ai/chat', async (req, res) => {
-  const { prompt } = req.body;
+  const { prompt, messages, model, reasoning } = req.body;
+
+  const apiKey = getApiKey();
+  const selectedModel = model || "stealth/ox-alpha";
+
+  let requestMessages = [];
+  if (Array.isArray(messages) && messages.length > 0) {
+    requestMessages = messages;
+  } else if (prompt) {
+    requestMessages = [{ role: 'user', content: prompt }];
+  } else {
+    return res.status(400).json({ error: 'Either messages or prompt must be provided.' });
+  }
 
   try {
+    const payload = {
+      model: selectedModel,
+      messages: requestMessages,
+      stream: true,
+      reasoning: reasoning !== undefined ? reasoning : { enabled: true }
+    };
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        "model": "tencent/hy3:free",
-        "messages": [
-          { "role": "user", "content": prompt }
-        ],
-        "stream": true
-      })
+      body: JSON.stringify(payload)
     });
 
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Transfer-Encoding', 'chunked');
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenRouter API error:", response.status, errorText);
+      return res.status(response.status).send(`AI Error: ${errorText}`);
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
 
     response.body.on('data', chunk => {
-      const text = chunk.toString();
-      const lines = text.split('\n').filter(line => line.trim() !== '');
-      for (const line of lines) {
-        if (line.includes('data: [DONE]')) return;
-        if (line.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(line.substring(6));
-            const content = data.choices[0]?.delta?.content || '';
-            res.write(content);
-          } catch (e) {
-            // Ignore parse errors for incomplete chunks
-          }
-        }
-      }
+      res.write(chunk);
     });
 
-    response.body.on('end', () => res.end());
+    response.body.on('end', () => {
+      res.end();
+    });
+
+    response.body.on('error', (err) => {
+      console.error('Stream error:', err);
+      res.end();
+    });
+
   } catch (error) {
     console.error(error);
     res.status(500).send('AI Error');

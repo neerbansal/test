@@ -1,13 +1,13 @@
 export type LineType = 'input' | 'output' | 'error' | 'system';
 
-export type TerminalLine {
+export interface TerminalLine {
   id: string;
   content: string;
   type: LineType;
   timestamp: number;
 }
 
-export type TerminalState {
+export interface TerminalState {
   lines: TerminalLine[];
   isStreaming: boolean;
   history: string[];
